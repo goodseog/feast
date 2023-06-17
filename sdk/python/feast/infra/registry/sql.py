@@ -243,22 +243,7 @@ class SqlRegistry(BaseRegistry):
 
     def _refresh_cached_registry_if_necessary(self):
         with self._refresh_lock:
-            expired = (
-                self.cached_registry_proto is None
-                or self.cached_registry_proto_created is None
-            ) or (
-                self.cached_registry_proto_ttl.total_seconds()
-                > 0  # 0 ttl means infinity
-                and (
-                    datetime.utcnow()
-                    > (
-                        self.cached_registry_proto_created
-                        + self.cached_registry_proto_ttl
-                    )
-                )
-            )
-
-            if expired:
+            if self.expired:
                 logger.info("Registry cache expired, so refreshing")
                 self.refresh()
 
@@ -1080,3 +1065,20 @@ class SqlRegistry(BaseRegistry):
                     projects.add(row["project_id"])
 
         return projects
+
+    @property
+    def expired(self) -> bool:
+        return (
+            self.cached_registry_proto is None
+            or self.cached_registry_proto_created is None
+        ) or (
+            self.cached_registry_proto_ttl.total_seconds()
+            > 0  # 0 ttl means infinity
+            and (
+                datetime.utcnow()
+                > (
+                    self.cached_registry_proto_created
+                    + self.cached_registry_proto_ttl
+                )
+            )
+        )
