@@ -2152,30 +2152,30 @@ class FeatureStore:
         allow_cache=False,
         hide_dummy_entity: bool = True,
     ) -> Tuple[List[FeatureView], List[RequestFeatureView], List[OnDemandFeatureView]]:
+        if self.cached_fvs is None or hasattr(self._registry, "expired") and self._registry.expired:
+            self.cached_fvs = {
+                fv.name: fv
+                for fv in [
+                    *self._list_feature_views(allow_cache, hide_dummy_entity),
+                    *self._registry.list_stream_feature_views(
+                        project=self.project, allow_cache=allow_cache
+                    ),
+                ]
+            }
 
-        fvs = {
-            fv.name: fv
-            for fv in [
-                *self._list_feature_views(allow_cache, hide_dummy_entity),
-                *self._registry.list_stream_feature_views(
+            self.cached_request_fvs = {
+                fv.name: fv
+                for fv in self._registry.list_request_feature_views(
                     project=self.project, allow_cache=allow_cache
-                ),
-            ]
-        }
+                )
+            }
 
-        request_fvs = {
-            fv.name: fv
-            for fv in self._registry.list_request_feature_views(
-                project=self.project, allow_cache=allow_cache
-            )
-        }
-
-        od_fvs = {
-            fv.name: fv
-            for fv in self._registry.list_on_demand_feature_views(
-                project=self.project, allow_cache=allow_cache
-            )
-        }
+            self.cached_od_fvs = {
+                fv.name: fv
+                for fv in self._registry.list_on_demand_feature_views(
+                    project=self.project, allow_cache=allow_cache
+                )
+            }
 
         if isinstance(features, FeatureService):
             fvs_to_use, request_fvs_to_use, od_fvs_to_use = [], [], []
@@ -2183,20 +2183,20 @@ class FeatureStore:
                 (projection.name, projection)
                 for projection in features.feature_view_projections
             ]:
-                if fv_name in fvs:
+                if fv_name in self.cached_fvs:
                     fvs_to_use.append(
-                        fvs[fv_name].with_projection(copy.copy(projection))
+                        self.cached_fvs[fv_name].with_projection(copy.copy(projection))
                     )
-                elif fv_name in request_fvs:
+                elif fv_name in self.cached_request_fvs:
                     request_fvs_to_use.append(
-                        request_fvs[fv_name].with_projection(copy.copy(projection))
+                        self.cached_request_fvs[fv_name].with_projection(copy.copy(projection))
                     )
-                elif fv_name in od_fvs:
-                    odfv = od_fvs[fv_name].with_projection(copy.copy(projection))
+                elif fv_name in self.cached_od_fvs:
+                    odfv = self.cached_od_fvs[fv_name].with_projection(copy.copy(projection))
                     od_fvs_to_use.append(odfv)
                     # Let's make sure to include an FVs which the ODFV requires Features from.
                     for projection in odfv.source_feature_view_projections.values():
-                        fv = fvs[projection.name].with_projection(copy.copy(projection))
+                        fv = self.cached_fvs[projection.name].with_projection(copy.copy(projection))
                         if fv not in fvs_to_use:
                             fvs_to_use.append(fv)
                 else:
@@ -2208,9 +2208,9 @@ class FeatureStore:
             views_to_use = (fvs_to_use, request_fvs_to_use, od_fvs_to_use)
         else:
             views_to_use = (
-                [*fvs.values()],
-                [*request_fvs.values()],
-                [*od_fvs.values()],
+                [*self.cached_fvs.values()],
+                [*self.cached_request_fvs.values()],
+                [*self.cached_od_fvs.values()],
             )
 
         return views_to_use
