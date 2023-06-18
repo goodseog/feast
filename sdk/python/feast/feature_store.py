@@ -2146,6 +2146,10 @@ class FeatureStore:
             del online_features_response.metadata.feature_names.val[idx]
             del online_features_response.results[idx]
 
+    cached_fvs: Optional[dict[str, FeatureView]] = None
+    cached_request_fvs: Optional[dict[str, RequestFeatureView]] = None
+    cached_od_fvs: Optional[dict[str, OnDemandFeatureView]] = None
+
     def _get_feature_views_to_use(
         self,
         features: Optional[Union[List[str], FeatureService]],
